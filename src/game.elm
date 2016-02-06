@@ -91,6 +91,7 @@ updateMario (dt, keys) mario =
     |> gravity dt
     |> jump keys
     |> walk keys
+    |> constraints dt
     |> physics dt
 
 
@@ -116,11 +117,17 @@ physics dt mario =
       y = max 0 (mario.y + dt * mario.vy)
   }
 
+constraints : Float -> Model -> Model
+constraints dt mario =
+  { mario |
+      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx
+  }
+
 
 walk : Keys -> Model -> Model
 walk keys mario =
   { mario |
-      vx = (toFloat keys.x * 2),
+      vx = toFloat keys.x * 2,
       dir =
         if keys.x < 0 then
             Left
@@ -135,32 +142,14 @@ walk keys mario =
 platformGenerator : Float -> Platform
 platformGenerator dt =
   Platform 20 100 (10*dt) (10*dt)
-  {-let
-    platform =
-      { h = 20 
-      , w = 100
-      , x = 10 * dt
-      , y = 10 * dt
-      }
-  in
-    platform-}
 
 within : Model -> Platform -> Bool
 within mario platform = 
-  near platform.x ((toFloat platform.h) / 2) mario.x && near platform.y ((toFloat platform.w) / 2) mario.y
+  near platform.x ((toFloat platform.w) / 2) mario.x && near platform.y ((toFloat platform.h) / 2) mario.y
 
 near : number -> number -> number -> Bool
 near c h n =
   n >= c-h && n <= c+h
-
-stepV : number -> Bool -> Bool -> number
-stepV v lowerCollision upperCollision =
-  if lowerCollision then
-      abs v
-  else if upperCollision then
-      -(abs v)
-  else
-      v
 
 -- VIEW
 

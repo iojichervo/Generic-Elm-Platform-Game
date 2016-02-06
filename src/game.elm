@@ -88,12 +88,17 @@ update (dt, keys) game =
 updateMario : (Float, Keys) -> Model -> List Platform -> Model
 updateMario (dt, keys) mario platforms =
   mario
-    |> gravity dt
+    |> gravity dt platforms
     |> jump keys
     |> walk keys
-    |> constraints dt platforms
+    |> constraints platforms
     |> physics dt
 
+gravity : Float -> List Platform -> Model -> Model
+gravity dt platforms mario =
+  { mario |
+      vy = if (List.any ((\n -> n mario) within) platforms && mario.vy <= 0) || mario.y == 0 then 0 else mario.vy - dt/4
+  }
 
 jump : Keys -> Model -> Model
 jump keys mario =
@@ -101,28 +106,6 @@ jump keys mario =
       { mario | vy = 8.0 }
   else
       mario
-
-
-gravity : Float -> Model -> Model
-gravity dt mario =
-  { mario |
-      vy = if mario.y > 0 then mario.vy - dt/4 else 0
-  }
-
-
-physics : Float -> Model -> Model
-physics dt mario =
-  { mario |
-      x = mario.x + dt * mario.vx,
-      y = max 0 (mario.y + dt * mario.vy)
-  }
-
-constraints : Float -> List Platform -> Model -> Model
-constraints dt platforms mario =
-  { mario |
-      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx,
-      vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
-  }
 
 walk : Keys -> Model -> Model
 walk keys mario =
@@ -137,6 +120,20 @@ walk keys mario =
 
         else
             mario.dir
+  }
+
+constraints : List Platform -> Model -> Model
+constraints platforms mario =
+  { mario |
+      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx,
+      vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
+  }
+
+physics : Float -> Model -> Model
+physics dt mario =
+  { mario |
+      x = mario.x + dt * mario.vx,
+      y = max 0 (mario.y + dt * mario.vy)
   }
 
 platformGenerator : Float -> Platform
@@ -159,7 +156,7 @@ view (w',h') game =
     (w,h) = (toFloat w', toFloat h')
 
     verb =
-      if game.mario.y > 0 then
+      if game.mario.vy /= 0 then
           "jump"
 
       else if game.mario.vx /= 0 then

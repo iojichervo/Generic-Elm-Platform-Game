@@ -80,18 +80,18 @@ emptyPlatform =
 update : (Float, Keys) -> Game -> Game
 update (dt, keys) game =
   { game |
-    mario = updateMario (dt, ((Debug.log "keys") keys)) ((Debug.log "mario") game.mario),
-    platforms = platformGenerator dt :: game.platforms
+    mario = updateMario (dt, keys) game.mario game.platforms,
+    platforms = [platformGenerator dt]
   }
 
 
-updateMario : (Float, Keys) -> Model -> Model
-updateMario (dt, keys) mario =
+updateMario : (Float, Keys) -> Model -> List Platform -> Model
+updateMario (dt, keys) mario platforms =
   mario
     |> gravity dt
     |> jump keys
     |> walk keys
-    |> constraints dt
+    |> constraints dt platforms
     |> physics dt
 
 
@@ -117,12 +117,12 @@ physics dt mario =
       y = max 0 (mario.y + dt * mario.vy)
   }
 
-constraints : Float -> Model -> Model
-constraints dt mario =
+constraints : Float -> List Platform -> Model -> Model
+constraints dt platforms mario =
   { mario |
-      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx
+      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx,
+      vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
   }
-
 
 walk : Keys -> Model -> Model
 walk keys mario =
@@ -141,7 +141,7 @@ walk keys mario =
 
 platformGenerator : Float -> Platform
 platformGenerator dt =
-  Platform 20 100 (10*dt) (10*dt)
+  Platform 20 100 (100) (50)
 
 within : Model -> Platform -> Bool
 within mario platform = 
@@ -181,10 +181,7 @@ view (w',h') game =
 
     groundY = 62 - h/2
 
-    position =
-      (game.mario.x, game.mario.y + groundY)
-
-    platform = if List.isEmpty game.platforms then emptyPlatform else fromJust (List.head ((Debug.log "platforms") game.platforms))
+    platform = if List.isEmpty game.platforms then emptyPlatform else fromJust (List.head game.platforms)
     platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
 
   in
@@ -200,13 +197,13 @@ view (w',h') game =
       , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
           |> filled Color.red
           |> move (rightWall.x, rightWall.y)
-      , marioImage
-          |> toForm
-          |> move position
       , toForm (leftAligned (Text.fromString (toString game.mario.x)))
           |> move (0, 40 - h/2)
       ,  platRect
-          |> move (platform.x, platform.y)
+          |> move (platform.x, platform.y + groundY)
+      , marioImage
+          |> toForm
+          |> move (game.mario.x, game.mario.y + groundY)
       ]
 
 fromJust : Maybe a -> a

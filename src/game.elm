@@ -6,6 +6,7 @@ import Time exposing (..)
 import Window
 import Text
 import Debug
+import Random
 
 -- CONSTANTS
 
@@ -63,27 +64,17 @@ defaultGame : Game
 defaultGame =
   { state = Playing
   , mario = initialMario
-  , platforms = []
+  , platforms = initialPlatforms 60 []
   }
 
-
-emptyPlatform : Platform
-emptyPlatform =
-  { h = 0
-  , w = 0
-  , x = 0
-  , y = 0
-  }
 
 -- UPDATE
 
 update : (Float, Keys) -> Game -> Game
 update (dt, keys) game =
   { game |
-    mario = updateMario (dt, keys) game.mario game.platforms,
-    platforms = [platformGenerator dt]
+    mario = updateMario (dt, keys) game.mario game.platforms
   }
-
 
 updateMario : (Float, Keys) -> Model -> List Platform -> Model
 updateMario (dt, keys) mario platforms =
@@ -136,9 +127,13 @@ physics dt mario =
       y = max 0 (mario.y + dt * mario.vy)
   }
 
-platformGenerator : Float -> Platform
-platformGenerator dt =
-  Platform 20 100 (100) (50)
+platformGenerator : Float -> Float -> Platform
+platformGenerator dt y =
+  let
+--    x = fst (Random.generate (Random.float leftWall.x rightWall.x) (Random.initialSeed (round dt)))
+    x = 15
+  in
+    Platform 15 100 x y
 
 within : Model -> Platform -> Bool
 within mario platform = 
@@ -147,6 +142,14 @@ within mario platform =
 near : number -> number -> number -> Bool
 near c h n =
   n >= c-h && n <= c+h
+
+
+initialPlatforms : Float -> List Platform -> List Platform
+initialPlatforms y platforms =
+  if y > 300 then
+    platforms
+  else
+    initialPlatforms (y + 60) ((platformGenerator 1 y) ::  platforms)
 
 -- VIEW
 
@@ -178,14 +181,11 @@ view (w',h') game =
 
     groundY = 62 - h/2
 
-    platform = if List.isEmpty game.platforms then emptyPlatform else fromJust (List.head game.platforms)
-    platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
+    platforms = platformsView game.platforms
 
   in
-    collage w' h'
-      [ rect w h
-          |> filled Color.white
-      , rect w 50
+    collage w' h' (List.append platforms
+      [ rect w 50
           |> filled Color.charcoal
           |> move (0, 24 - h/2)
       , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
@@ -196,12 +196,23 @@ view (w',h') game =
           |> move (rightWall.x, rightWall.y)
       , toForm (leftAligned (Text.fromString (toString game.mario.x)))
           |> move (0, 40 - h/2)
-      ,  platRect
-          |> move (platform.x, platform.y + groundY)
       , marioImage
           |> toForm
           |> move (game.mario.x, game.mario.y + groundY)
-      ]
+      ])
+
+platformsView : List Platform -> List Graphics.Collage.Form
+platformsView platforms =
+  List.map platformView platforms
+
+platformView : Platform -> Graphics.Collage.Form
+platformView platform =
+  let
+    groundY = 62 - 995/2
+
+    platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
+  in
+    platRect |> move (platform.x, platform.y + groundY)
 
 fromJust : Maybe a -> a
 fromJust x = case x of

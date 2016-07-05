@@ -127,14 +127,6 @@ physics dt mario =
       y = max 0 (mario.y + dt * mario.vy)
   }
 
-platformGenerator : Float -> Float -> Platform
-platformGenerator dt y =
-  let
---    x = fst (Random.generate (Random.float leftWall.x rightWall.x) (Random.initialSeed (round dt)))
-    x = 15
-  in
-    Platform 15 100 x y
-
 within : Model -> Platform -> Bool
 within mario platform = 
   near platform.x ((toFloat platform.w) / 2) mario.x && near platform.y ((toFloat platform.h) / 2) mario.y
@@ -150,6 +142,23 @@ initialPlatforms y platforms =
     platforms
   else
     initialPlatforms (y + 60) ((platformGenerator 1 y) ::  platforms)
+
+platformGenerator : Float -> Float -> Platform
+platformGenerator dt y =
+  let
+
+    a = Debug.log "atata" (Time.timestamp (Signal.constant ()))
+    b = \(time, _) -> Random.initialSeed (round time)
+    randomSeed = Signal.map b a
+
+    x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) randomSeed)
+
+    x2 = Debug.log "ff" x3
+
+    x = 15
+  in
+    Platform 15 100 x y
+
 
 -- VIEW
 

@@ -151,7 +151,8 @@ platformGenerator dt y =
     b = \(time, _) -> Random.initialSeed (round time)
     randomSeed = Signal.map b a
 
-    x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) randomSeed)
+    -- x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) randomSeed)
+    x3 = 3
 
     x2 = Debug.log "ff" x3
 

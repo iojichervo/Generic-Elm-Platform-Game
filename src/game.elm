@@ -1,8 +1,8 @@
 import Color exposing (..)
-import Graphics.Collage exposing (..)
-import Graphics.Element exposing (..)
+import Collage exposing (..)
+import Element exposing (..)
 import Keyboard
-import Time exposing (..)
+import Time
 import Window
 import Text
 import Debug
@@ -146,20 +146,21 @@ initialPlatforms y platforms =
 platformGenerator : Float -> Float -> Platform
 platformGenerator dt y =
   let
+    --x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) (Random.initialSeed 123))
 
-    a = Debug.log "atata" (Time.timestamp (Signal.constant ()))
-    b = \(time, _) -> Random.initialSeed (round time)
-    randomSeed = Signal.map b a
+    (tuple, nextSeed) = Random.step floatTuple (Random.initialSeed 123)
 
-    -- x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) randomSeed)
-    x3 = 3
+    x2 = Debug.log "ff" tuple
 
-    x2 = Debug.log "ff" x3
-
-    x = 15
+    x = 0
   in
     Platform 15 100 x y
 
+floatTuple : Random.Generator (Float, Float)
+floatTuple =
+    Random.float 0.0 1000.0
+    `Random.andThen`
+    (\val1 -> Random.map ((,) val1) (Random.float 0 val1))
 
 -- VIEW
 
@@ -211,11 +212,11 @@ view (w',h') game =
           |> move (game.mario.x, game.mario.y + groundY)
       ])
 
-platformsView : List Platform -> List Graphics.Collage.Form
+platformsView : List Platform -> List Collage.Form
 platformsView platforms =
   List.map platformView platforms
 
-platformView : Platform -> Graphics.Collage.Form
+platformView : Platform -> Collage.Form
 platformView platform =
   let
     groundY = 62 - 995/2

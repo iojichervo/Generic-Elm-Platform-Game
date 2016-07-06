@@ -1,12 +1,15 @@
-import Color exposing (..)
-import Collage exposing (..)
-import Element exposing (..)
-import Keyboard
-import Time
-import Window
+import Html exposing (Html)
+import Html.App as Html
+import Color
+import Collage
+import Element
 import Text
+import Time exposing (Time, second)
 import Debug
+import Keyboard
+import Collage
 import Random
+import Utils exposing (..)
 
 -- CONSTANTS
 
@@ -28,7 +31,6 @@ type alias Game =
   , platforms : List Platform
   }
 
-
 type alias Model =
   { x : Float
   , y : Float
@@ -47,9 +49,6 @@ type alias Platform =
 type Direction = Left | Right
 
 
-type alias Keys = { x:Int, y:Int }
-
-
 initialMario : Model
 initialMario =
   { x = 0
@@ -60,21 +59,35 @@ initialMario =
   }
 
 
-defaultGame : Game
+defaultGame : (Game, Cmd Msg)
 defaultGame =
-  { state = Playing
+  ({ state = Playing
   , mario = initialMario
   , platforms = initialPlatforms 60 []
-  }
-
+  }, Cmd.none)
 
 -- UPDATE
+type Msg
+    = Tick Time
+    | KeyMsg Keyboard.KeyCode
 
-update : (Float, Keys) -> Game -> Game
-update (dt, keys) game =
+update : Msg -> Game -> (Game, Cmd Msg)
+update msg game =
+  case msg of
+    Tick newTime ->
+      (game, Cmd.none)
+    KeyMsg key ->
+        let
+            a = Debug.log "key" key
+        in
+          (updateGame (1, keyCodeToKey key) game, Cmd.none)
+
+updateGame : (Float, Keys) -> Game -> Game
+updateGame (dt, keys) game =
   { game |
     mario = updateMario (dt, keys) game.mario game.platforms
   }
+
 
 updateMario : (Float, Keys) -> Model -> List Platform -> Model
 updateMario (dt, keys) mario platforms =
@@ -128,7 +141,7 @@ physics dt mario =
   }
 
 within : Model -> Platform -> Bool
-within mario platform = 
+within mario platform =
   near platform.x ((toFloat platform.w) / 2) mario.x && near platform.y ((toFloat platform.h) / 2) mario.y
 
 near : number -> number -> number -> Bool
@@ -162,13 +175,27 @@ floatTuple =
     `Random.andThen`
     (\val1 -> Random.map ((,) val1) (Random.float 0 val1))
 
+
+
+
+
+
+
+
+-- SUBSCRIPTIONS
+
+subscriptions : Game -> Sub Msg
+subscriptions game =
+    Sub.batch
+    [ Time.every second Tick
+    , Keyboard.presses KeyMsg
+    ]
+
 -- VIEW
 
-view : (Int, Int) -> Game -> Element
-view (w',h') game =
+view : Game -> Html Msg
+view game =
   let
-    (w,h) = (toFloat w', toFloat h')
-
     verb =
       if game.mario.vy /= 0 then
           "jump"
@@ -188,29 +215,32 @@ view (w',h') game =
       "../img/mario/"++ verb ++ "/" ++ dir ++ ".gif"
 
     marioImage =
-      image 35 35 src
+      Element.image 35 35 src
 
-    groundY = 62 - h/2
+    groundY = 62 - 300/2
+
+    h = 300
+    w = 600
 
     platforms = platformsView game.platforms
 
   in
-    collage w' h' (List.append platforms
-      [ rect w 50
-          |> filled Color.charcoal
-          |> move (0, 24 - h/2)
-      , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
-          |> filled Color.red
-          |> move (leftWall.x, leftWall.y)
-      , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
-          |> filled Color.red
-          |> move (rightWall.x, rightWall.y)
-      , toForm (leftAligned (Text.fromString (toString game.mario.x)))
-          |> move (0, 40 - h/2)
+    Element.toHtml (Collage.collage w h (List.append platforms
+      [ Collage.rect w 50
+          |> Collage.filled Color.charcoal
+          |> Collage.move (0, 24 - h/2)
+      , Collage.rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+          |> Collage.filled Color.red
+          |> Collage.move (leftWall.x, leftWall.y)
+      , Collage.rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
+          |> Collage.filled Color.red
+          |> Collage.move (rightWall.x, rightWall.y)
+      , Collage.toForm (Element.leftAligned (Text.fromString (toString game.mario.x)))
+          |> Collage.move (0, 40 - h/2)
       , marioImage
-          |> toForm
-          |> move (game.mario.x, game.mario.y + groundY)
-      ])
+          |> Collage.toForm
+          |> Collage.move (game.mario.x, game.mario.y + groundY)
+      ]))
 
 platformsView : List Platform -> List Collage.Form
 platformsView platforms =
@@ -221,25 +251,22 @@ platformView platform =
   let
     groundY = 62 - 995/2
 
-    platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
+    platRect = Collage.filled Color.blue (Collage.rect (toFloat platform.w) (toFloat platform.h))
   in
-    platRect |> move (platform.x, platform.y + groundY)
+    platRect |> Collage.move (platform.x, platform.y + groundY)
 
 fromJust : Maybe a -> a
 fromJust x = case x of
     Just y -> y
     Nothing -> Debug.crash "error: fromJust Nothing"
 
--- SIGNALS
+-- MAIN
 
-main : Signal Element
+main : Program Never
 main =
-  Signal.map2 view Window.dimensions (Signal.foldp update defaultGame input)
-
-
-input : Signal (Float, Keys)
-input =
-  let
-    delta = Signal.map (\t -> t/20) (fps 35)
-  in
-    Signal.sampleOn delta (Signal.map2 (,) delta Keyboard.arrows)
+  Html.program
+    { init = defaultGame
+    , view = view
+    , update = update
+    , subscriptions = subscriptions
+    }

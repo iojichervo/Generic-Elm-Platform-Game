@@ -1,10 +1,26 @@
 import Html exposing (Html)
 import Html.App as Html
+import Html.Attributes
+import Color
+import Collage
+import Element
+import Text
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Time exposing (Time, second)
 import Debug
 import Keyboard
+import Collage
+
+-- CONSTANTS
+
+leftWall : Platform
+leftWall =
+  Platform 1300 10 -300 0
+
+rightWall : Platform
+rightWall =
+  Platform 1300 10 300 0
 
 -- MODEL
 
@@ -81,23 +97,54 @@ subscriptions game =
 
 -- VIEW
 
-
 view : Game -> Html Msg
 view game =
   let
-    angle = 1
+    verb =
+      if game.mario.vy /= 0 then
+          "jump"
 
-    handX =
-      toString (50 + 40 * cos angle)
+      else if game.mario.vx /= 0 then
+          "walk"
 
-    handY =
-      toString (50 + 40 * sin angle)
+      else
+          "stand"
+
+    dir =
+      case game.mario.dir of
+        Left -> "left"
+        Right -> "right"
+
+    src =
+      "../img/mario/"++ verb ++ "/" ++ dir ++ ".gif"
+
+    marioImage =
+      Element.image 35 35 src
+
+    groundY = 62 - 300/2
+    h = 300
+    w = 600
+
+--    platforms = platformsView game.platforms
+    platforms = []
+
   in
-    svg [ viewBox "0 0 100 100", width "300px" ]
-      [ circle [ cx "50", cy "50", r "45", fill "#0B79CE" ] []
-      , line [ x1 "50", y1 "50", x2 handX, y2 handY, stroke "#023963" ] []
-      ]
-
+    Element.toHtml (Collage.collage 600 300 (List.append platforms
+      [ Collage.rect 600 50
+          |> Collage.filled Color.charcoal
+          |> Collage.move (0, 24 - h/2)
+      , Collage.rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+          |> Collage.filled Color.red
+          |> Collage.move (leftWall.x, leftWall.y)
+      , Collage.rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
+          |> Collage.filled Color.red
+          |> Collage.move (rightWall.x, rightWall.y)
+      , Collage.toForm (Element.leftAligned (Text.fromString (toString game.mario.x)))
+          |> Collage.move (0, 40 - h/2)
+      , marioImage
+          |> Collage.toForm
+          |> Collage.move (game.mario.x, game.mario.y + groundY)
+      ]))
 
 -- MAIN
 

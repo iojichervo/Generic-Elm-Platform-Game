@@ -6,11 +6,12 @@ import Collage
 import Element
 import Text
 import Svg exposing (..)
-import Svg.Attributes exposing (..)
+import Svg.Attributes
 import Time exposing (Time, second)
 import Debug
 import Keyboard
 import Collage
+import Random
 
 -- CONSTANTS
 
@@ -68,7 +69,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = []
+  , platforms = initialPlatforms 60 []
   }, Cmd.none)
 
 -- UPDATE
@@ -82,7 +83,107 @@ update msg game =
     Tick newTime ->
       (game, Cmd.none)
     KeyMsg key ->
-      (game, Cmd.none)
+      (updateGame (1, {x = 1, y = 10}) game, Cmd.none)
+
+
+updateGame : (Float, Keys) -> Game -> Game
+updateGame (dt, keys) game =
+  { game |
+    mario = updateMario (dt, keys) game.mario game.platforms
+  }
+
+
+updateMario : (Float, Keys) -> Model -> List Platform -> Model
+updateMario (dt, keys) mario platforms =
+  mario
+    |> gravity dt platforms
+    |> jump keys
+    |> walk keys
+    |> constraints platforms
+    |> physics dt
+
+gravity : Float -> List Platform -> Model -> Model
+gravity dt platforms mario =
+  { mario |
+      vy = if (List.any ((\n -> n mario) within) platforms && mario.vy <= 0) || mario.y == 0 then 0 else mario.vy - dt/4
+  }
+
+jump : Keys -> Model -> Model
+jump keys mario =
+  if keys.y > 0 && mario.vy == 0 then
+      { mario | vy = 8.0 }
+  else
+      mario
+
+walk : Keys -> Model -> Model
+walk keys mario =
+  { mario |
+      vx = toFloat keys.x * 2,
+      dir =
+        if keys.x < 0 then
+            Left
+
+        else if keys.x > 0 then
+            Right
+
+        else
+            mario.dir
+  }
+
+constraints : List Platform -> Model -> Model
+constraints platforms mario =
+  { mario |
+      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx,
+      vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
+  }
+
+physics : Float -> Model -> Model
+physics dt mario =
+  { mario |
+      x = mario.x + dt * mario.vx,
+      y = max 0 (mario.y + dt * mario.vy)
+  }
+
+within : Model -> Platform -> Bool
+within mario platform =
+  near platform.x ((toFloat platform.w) / 2) mario.x && near platform.y ((toFloat platform.h) / 2) mario.y
+
+near : number -> number -> number -> Bool
+near c h n =
+  n >= c-h && n <= c+h
+
+
+initialPlatforms : Float -> List Platform -> List Platform
+initialPlatforms y platforms =
+  if y > 300 then
+    platforms
+  else
+    initialPlatforms (y + 60) ((platformGenerator 1 y) ::  platforms)
+
+platformGenerator : Float -> Float -> Platform
+platformGenerator dt y =
+  let
+    --x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) (Random.initialSeed 123))
+
+    (tuple, nextSeed) = Random.step floatTuple (Random.initialSeed 123)
+
+    x2 = Debug.log "ff" tuple
+
+    x = 0
+  in
+    Platform 15 100 x y
+
+floatTuple : Random.Generator (Float, Float)
+floatTuple =
+    Random.float 0.0 1000.0
+    `Random.andThen`
+    (\val1 -> Random.map ((,) val1) (Random.float 0 val1))
+
+
+
+
+
+
 
 
 -- SUBSCRIPTIONS
@@ -93,7 +194,6 @@ subscriptions game =
     [ Time.every second Tick
     , Keyboard.presses KeyMsg
     ]
-
 
 -- VIEW
 
@@ -122,15 +222,15 @@ view game =
       Element.image 35 35 src
 
     groundY = 62 - 300/2
+
     h = 300
     w = 600
 
---    platforms = platformsView game.platforms
-    platforms = []
+    platforms = platformsView game.platforms
 
   in
-    Element.toHtml (Collage.collage 600 300 (List.append platforms
-      [ Collage.rect 600 50
+    Element.toHtml (Collage.collage w h (List.append platforms
+      [ Collage.rect w 50
           |> Collage.filled Color.charcoal
           |> Collage.move (0, 24 - h/2)
       , Collage.rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
@@ -145,6 +245,24 @@ view game =
           |> Collage.toForm
           |> Collage.move (game.mario.x, game.mario.y + groundY)
       ]))
+
+platformsView : List Platform -> List Collage.Form
+platformsView platforms =
+  List.map platformView platforms
+
+platformView : Platform -> Collage.Form
+platformView platform =
+  let
+    groundY = 62 - 995/2
+
+    platRect = Collage.filled Color.blue (Collage.rect (toFloat platform.w) (toFloat platform.h))
+  in
+    platRect |> Collage.move (platform.x, platform.y + groundY)
+
+fromJust : Maybe a -> a
+fromJust x = case x of
+    Just y -> y
+    Nothing -> Debug.crash "error: fromJust Nothing"
 
 -- MAIN
 

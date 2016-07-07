@@ -34,6 +34,7 @@ type alias Game =
   , platforms : List Platform
   , randomPosition : Float
   , size : Size
+  , score : Float
   }
 
 type alias Model =
@@ -71,6 +72,7 @@ defaultGame =
   , platforms = initialPlatforms 0 []
   , randomPosition = 0
   , size = Size 0 0
+  , score = 0.0
   }, Task.perform (\_ -> NoOp) Resize (Window.size))
 
 
@@ -165,7 +167,8 @@ updateGame dt game =
   { game |
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
-  , platforms = scroll game.mario game.platforms}
+  , platforms = scroll game.mario game.platforms
+  , score = if game.mario.y > game.score then game.mario.y else game.score }
 
 
 updateMario : Float -> Model -> List Platform -> Model
@@ -259,7 +262,9 @@ view game =
         if game.state == Playing then
             elementGame game
         else
-            centered (Text.fromString "Game Over")
+            "Game Over!\n\nYour Score is: " ++ toString game.score
+            |> Text.fromString
+            |> centered
 
   in
     toHtml <|
@@ -295,21 +300,24 @@ elementGame game =
     platforms = platformsView game.platforms
 
   in
-    collage w h (List.append (List.append
-      [ rect w h
-          |> filled (Color.rgb 174 238 238)] platforms)
+    collage w h
+      ([ rect w h -- background
+          |> filled (Color.rgb 174 238 238)] ++ platforms ++
       [ marioImage
           |> toForm
           |> move (game.mario.x, game.mario.y + groundY)
-      ,  rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+      , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
           |> filled Color.lightCharcoal
           |> move (leftWall.x - 8, leftWall.y)
       , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
           |> filled Color.lightCharcoal
           |> move (rightWall.x + 9, rightWall.y)
-      , toForm (leftAligned (Text.fromString (toString game.mario.y)))
-          |> move (0, 40 - h/2)
-      ] )
+      , "Score: " ++ toString game.score
+          |> Text.fromString
+          |> centered
+          |> toForm
+          |> move (-250, 280)
+      ])
 
 platformsView : List Platform -> List Form
 platformsView platforms =

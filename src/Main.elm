@@ -163,7 +163,7 @@ walk val mario =
 updateGame : Float -> Game -> Game
 updateGame dt game =
   { game |
-    state = if game.mario.y < 0 then Over else Playing
+    state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
   , platforms = scroll game.mario game.platforms}
 
@@ -232,7 +232,7 @@ initialPlatforms y platforms =
 platformGenerator : Float -> Platform
 platformGenerator y =
     if y == 0 then
-        Platform 50 600 0 -15
+        Platform 50 615 0 -23
     else
         Platform 15 100 0 y
 
@@ -295,19 +295,21 @@ elementGame game =
     platforms = platformsView game.platforms
 
   in
-    collage w h (List.append platforms
-      [ rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
-          |> filled Color.red
-          |> move (leftWall.x, leftWall.y)
-      , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
-          |> filled Color.red
-          |> move (rightWall.x, rightWall.y)
-      , toForm (leftAligned (Text.fromString (toString game.mario.y)))
-          |> move (0, 40 - h/2)
-      , marioImage
+    collage w h (List.append (List.append
+      [ rect w h
+          |> filled (Color.rgb 174 238 238)] platforms)
+      [ marioImage
           |> toForm
           |> move (game.mario.x, game.mario.y + groundY)
-      ])
+      ,  rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+          |> filled Color.lightCharcoal
+          |> move (leftWall.x - 8, leftWall.y)
+      , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
+          |> filled Color.lightCharcoal
+          |> move (rightWall.x + 9, rightWall.y)
+      , toForm (leftAligned (Text.fromString (toString game.mario.y)))
+          |> move (0, 40 - h/2)
+      ] )
 
 platformsView : List Platform -> List Form
 platformsView platforms =
@@ -318,9 +320,13 @@ platformView platform =
   let
     groundY = 62 - 600/2
 
-    platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
+    color = if platform.w > 600 then Color.lightCharcoal else Color.lightGreen
+
+    platRect = filled color (rect (toFloat platform.w) (toFloat platform.h))
+
+    fixY = if platform.w > 600 then 15 else toFloat platform.h
   in
-    platRect |> move (platform.x, platform.y + groundY)
+    platRect |> move (platform.x, platform.y + groundY - fixY)
 
 -- MAIN
 

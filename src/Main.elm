@@ -75,19 +75,15 @@ update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     Tick newTime ->
-      (game, Cmd.none)
+      (updateGame (1, keyCodeToKey 0) game, Cmd.none)
     KeyMsg key ->
-        let
-            a = Debug.log "key" key
-        in
-          (updateGame (1, keyCodeToKey key) game, Cmd.none)
+      (updateGame (1, keyCodeToKey key) game, Cmd.none)
 
 updateGame : (Float, Keys) -> Game -> Game
 updateGame (dt, keys) game =
   { game |
     mario = updateMario (dt, keys) game.mario game.platforms
   }
-
 
 updateMario : (Float, Keys) -> Model -> List Platform -> Model
 updateMario (dt, keys) mario platforms =
@@ -114,14 +110,12 @@ jump keys mario =
 walk : Keys -> Model -> Model
 walk keys mario =
   { mario |
-      vx = toFloat keys.x * 2,
+      vx = toFloat keys.x * 5,
       dir =
         if keys.x < 0 then
             Left
-
         else if keys.x > 0 then
             Right
-
         else
             mario.dir
   }
@@ -175,19 +169,12 @@ floatTuple =
     `Random.andThen`
     (\val1 -> Random.map ((,) val1) (Random.float 0 val1))
 
-
-
-
-
-
-
-
 -- SUBSCRIPTIONS
 
 subscriptions : Game -> Sub Msg
 subscriptions game =
     Sub.batch
-    [ Time.every second Tick
+    [ Time.every (15 * Time.millisecond) Tick
     , Keyboard.presses KeyMsg
     ]
 
@@ -199,13 +186,10 @@ view game =
     verb =
       if game.mario.vy /= 0 then
           "jump"
-
       else if game.mario.vx /= 0 then
           "walk"
-
       else
           "stand"
-
     dir =
       case game.mario.dir of
         Left -> "left"
@@ -217,10 +201,10 @@ view game =
     marioImage =
       Element.image 35 35 src
 
-    groundY = 62 - 300/2
+    h = 600
+    w = 800
 
-    h = 300
-    w = 600
+    groundY = 62 - h/2
 
     platforms = platformsView game.platforms
 
@@ -249,7 +233,7 @@ platformsView platforms =
 platformView : Platform -> Collage.Form
 platformView platform =
   let
-    groundY = 62 - 995/2
+    groundY = 62 - 600/2
 
     platRect = Collage.filled Color.blue (Collage.rect (toFloat platform.w) (toFloat platform.h))
   in

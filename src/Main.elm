@@ -6,10 +6,12 @@ import Element
 import Text
 import Time exposing (Time, second)
 import Debug
-import Keyboard
+import Keyboard exposing (KeyCode)
 import Collage
 import Random
 import Utils exposing (..)
+import AnimationFrame
+import Key exposing (..)
 
 -- CONSTANTS
 
@@ -68,16 +70,72 @@ defaultGame =
 
 -- UPDATE
 type Msg
-    = Tick Time
-    | KeyMsg Keyboard.KeyCode
+    = TimeUpdate Time
+    | KeyDown KeyCode
+    | KeyUp KeyCode
+
 
 update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
-    Tick newTime ->
+    TimeUpdate newTime ->
       (updateGame (1, keyCodeToKey 0) game, Cmd.none)
-    KeyMsg key ->
-      (updateGame (1, keyCodeToKey key) game, Cmd.none)
+
+    KeyDown keyCode ->
+      ( { game | mario = keyDown keyCode game.mario } , Cmd.none )
+
+    KeyUp keyCode ->
+      ( { game | mario = keyUp keyCode game.mario } , Cmd.none )
+
+
+keyDown : KeyCode -> Model -> Model
+keyDown keyCode model =
+    case Key.fromCode keyCode of
+        ArrowUp ->
+            jump model
+
+        ArrowLeft ->
+            walk -1 model
+
+        ArrowRight ->
+            walk 1 model
+
+        _ ->
+            model
+
+
+keyUp : KeyCode -> Model -> Model
+keyUp keyCode model =
+    case Key.fromCode keyCode of
+        ArrowLeft ->
+            walk 0 model
+
+        ArrowRight ->
+            walk 0 model
+
+        _ ->
+            model
+
+jump : Model -> Model
+jump mario =
+  if mario.vy == 0 then
+      { mario | vy = 8.0 }
+  else
+      mario
+
+walk : Int -> Model -> Model
+walk val mario =
+  { mario |
+      vx = toFloat val * 3,
+      dir =
+        if val < 0 then
+            Left
+        else if val > 0 then
+            Right
+        else
+            mario.dir
+  }
+
 
 updateGame : (Float, Keys) -> Game -> Game
 updateGame (dt, keys) game =
@@ -85,14 +143,14 @@ updateGame (dt, keys) game =
     mario = updateMario (dt, keys) game.mario game.platforms
   }
 
+
 updateMario : (Float, Keys) -> Model -> List Platform -> Model
 updateMario (dt, keys) mario platforms =
   mario
     |> gravity dt platforms
-    |> jump keys
-    |> walk keys
     |> constraints platforms
     |> physics dt
+
 
 gravity : Float -> List Platform -> Model -> Model
 gravity dt platforms mario =
@@ -100,25 +158,6 @@ gravity dt platforms mario =
       vy = if (List.any ((\n -> n mario) within) platforms && mario.vy <= 0) || mario.y == 0 then 0 else mario.vy - dt/4
   }
 
-jump : Keys -> Model -> Model
-jump keys mario =
-  if keys.y > 0 && mario.vy == 0 then
-      { mario | vy = 8.0 }
-  else
-      mario
-
-walk : Keys -> Model -> Model
-walk keys mario =
-  { mario |
-      vx = toFloat keys.x * 5,
-      dir =
-        if keys.x < 0 then
-            Left
-        else if keys.x > 0 then
-            Right
-        else
-            mario.dir
-  }
 
 constraints : List Platform -> Model -> Model
 constraints platforms mario =
@@ -127,12 +166,14 @@ constraints platforms mario =
       vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
   }
 
+
 physics : Float -> Model -> Model
 physics dt mario =
   { mario |
       x = mario.x + dt * mario.vx,
       y = max 0 (mario.y + dt * mario.vy)
   }
+
 
 within : Model -> Platform -> Bool
 within mario platform =
@@ -153,29 +194,24 @@ initialPlatforms y platforms =
 platformGenerator : Float -> Float -> Platform
 platformGenerator dt y =
   let
-    --x3 = fst (Random.generate (Random.float leftWall.x rightWall.x) (Random.initialSeed 123))
+    seed0 = Random.initialSeed 31415
 
-    (tuple, nextSeed) = Random.step floatTuple (Random.initialSeed 123)
+    (val, seed) = Random.step (Random.float leftWall.x rightWall.x) seed0
 
-    x2 = Debug.log "ff" tuple
+    --x2 = Debug.log "ff" val
 
     x = 0
   in
     Platform 15 100 x y
-
-floatTuple : Random.Generator (Float, Float)
-floatTuple =
-    Random.float 0.0 1000.0
-    `Random.andThen`
-    (\val1 -> Random.map ((,) val1) (Random.float 0 val1))
 
 -- SUBSCRIPTIONS
 
 subscriptions : Game -> Sub Msg
 subscriptions game =
     Sub.batch
-    [ Time.every (15 * Time.millisecond) Tick
-    , Keyboard.presses KeyMsg
+    [ AnimationFrame.diffs TimeUpdate
+    , Keyboard.downs KeyDown
+    , Keyboard.ups KeyUp
     ]
 
 -- VIEW

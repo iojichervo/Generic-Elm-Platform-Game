@@ -2,15 +2,17 @@ import Html exposing (Html)
 import Html.App as Html
 import Color
 import Collage
-import Element
+import Element exposing (..)
 import Text
 import Time exposing (Time, second)
 import Debug
 import Keyboard exposing (KeyCode)
-import Collage
+import Collage exposing (..)
 import Random
 import AnimationFrame
 import Key exposing (..)
+import Window exposing (Size)
+import Task
 
 -- CONSTANTS
 
@@ -30,6 +32,8 @@ type alias Game =
   { state : State
   , mario : Model
   , platforms : List Platform
+  , randomPosition : Float
+  , size : Size
   }
 
 type alias Model =
@@ -65,33 +69,48 @@ defaultGame =
   ({ state = Playing
   , mario = initialMario
   , platforms = initialPlatforms 60 []
-  }, Cmd.none)
+  , randomPosition = 0
+  , size = Size 0 0
+  }, Task.perform (\_ -> NoOp) Resize (Window.size))
+
 
 -- UPDATE
 type Msg
     = TimeUpdate Time
     | KeyDown KeyCode
     | KeyUp KeyCode
+    | NewPlatform Float
+    | Resize Size
+    | NoOp
 
 
 update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     TimeUpdate newTime ->
-      (updateGame 1 game, Cmd.none)
+      ( updateGame 1 game , Random.generate NewPlatform (Random.float leftWall.x rightWall.x) )
 
     KeyDown keyCode ->
-      ( { game | mario = keyDown keyCode game.mario } , Cmd.none )
+      ( { game | mario = keyDown keyCode game.mario game.platforms } , Cmd.none )
 
     KeyUp keyCode ->
       ( { game | mario = keyUp keyCode game.mario } , Cmd.none )
 
+    NewPlatform position ->
+      ( { game | randomPosition = position } , Cmd.none )
 
-keyDown : KeyCode -> Model -> Model
-keyDown keyCode model =
+    Resize size ->
+      ( { game | size = size } , Cmd.none )
+
+    NoOp ->
+      ( game , Cmd.none )
+
+
+keyDown : KeyCode -> Model -> List Platform -> Model
+keyDown keyCode model platforms =
     case Key.fromCode keyCode of
         ArrowUp ->
-            jump model
+            jump model platforms
 
         ArrowLeft ->
             walk -1 model
@@ -115,9 +134,10 @@ keyUp keyCode model =
         _ ->
             model
 
-jump : Model -> Model
-jump mario =
-  if mario.vy == 0 then
+
+jump : Model -> List Platform -> Model
+jump mario platforms =
+  if mario.vy == 0 && (List.any ((\n -> n mario) within) platforms || mario.y == 0) then
       { mario | vy = 8.0 }
   else
       mario
@@ -184,24 +204,16 @@ near c h n =
 
 initialPlatforms : Float -> List Platform -> List Platform
 initialPlatforms y platforms =
-  if y > 300 then
+  if y > 600 then
     platforms
   else
-    initialPlatforms (y + 60) ((platformGenerator 1 y) ::  platforms)
+    initialPlatforms (y + 60) (platformGenerator y ::  platforms)
 
 
-platformGenerator : Float -> Float -> Platform
-platformGenerator dt y =
-  let
-    seed0 = Random.initialSeed 31415
+platformGenerator : Float -> Platform
+platformGenerator y =
+    Platform 15 100 0 y
 
-    (val, seed) = Random.step (Random.float leftWall.x rightWall.x) seed0
-
-    --x2 = Debug.log "ff" val
-
-    x = 0
-  in
-    Platform 15 100 x y
 
 -- SUBSCRIPTIONS
 
@@ -211,6 +223,7 @@ subscriptions game =
     [ AnimationFrame.diffs TimeUpdate
     , Keyboard.downs KeyDown
     , Keyboard.ups KeyUp
+    , Window.resizes Resize
     ]
 
 -- VIEW
@@ -234,45 +247,49 @@ view game =
       "../img/mario/"++ verb ++ "/" ++ dir ++ ".gif"
 
     marioImage =
-      Element.image 35 35 src
+      image 35 35 src
 
-    h = 600
     w = 800
+    h = 600
+
+    {width, height} = game.size
 
     groundY = 62 - h/2
 
     platforms = platformsView game.platforms
 
   in
-    Element.toHtml (Collage.collage w h (List.append platforms
-      [ Collage.rect w 50
-          |> Collage.filled Color.charcoal
-          |> Collage.move (0, 24 - h/2)
-      , Collage.rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
-          |> Collage.filled Color.red
-          |> Collage.move (leftWall.x, leftWall.y)
-      , Collage.rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
-          |> Collage.filled Color.red
-          |> Collage.move (rightWall.x, rightWall.y)
-      , Collage.toForm (Element.leftAligned (Text.fromString (toString game.mario.x)))
-          |> Collage.move (0, 40 - h/2)
+    toHtml <|
+    container width height middle <|
+    collage w h (List.append platforms
+      [ rect w 50
+          |> filled Color.charcoal
+          |> move (0, 24 - h/2)
+      , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+          |> filled Color.red
+          |> move (leftWall.x, leftWall.y)
+      , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
+          |> filled Color.red
+          |> move (rightWall.x, rightWall.y)
+      , toForm (leftAligned (Text.fromString (toString game.mario.x)))
+          |> move (0, 40 - h/2)
       , marioImage
-          |> Collage.toForm
-          |> Collage.move (game.mario.x, game.mario.y + groundY)
-      ]))
+          |> toForm
+          |> move (game.mario.x, game.mario.y + groundY)
+      ])
 
-platformsView : List Platform -> List Collage.Form
+platformsView : List Platform -> List Form
 platformsView platforms =
   List.map platformView platforms
 
-platformView : Platform -> Collage.Form
+platformView : Platform -> Form
 platformView platform =
   let
     groundY = 62 - 600/2
 
-    platRect = Collage.filled Color.blue (Collage.rect (toFloat platform.w) (toFloat platform.h))
+    platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
   in
-    platRect |> Collage.move (platform.x, platform.y + groundY)
+    platRect |> move (platform.x, platform.y + groundY)
 
 fromJust : Maybe a -> a
 fromJust x = case x of

@@ -53,7 +53,7 @@ type Direction = Left | Right
 initialMario : Model
 initialMario =
   { x = 0
-  , y = 200
+  , y = 0
   , vx = 0
   , vy = 0
   , dir = Right
@@ -153,15 +153,14 @@ updateMario dt mario platforms =
 gravity : Float -> List Platform -> Model -> Model
 gravity dt platforms mario =
   { mario |
-      vy = if (List.any ((\n -> n mario) within) platforms && mario.vy <= 0) || mario.y == 0 then 0 else mario.vy - dt/4
+      vy = if mario.vy <= 0 && (List.any ((\n -> n mario) within) platforms || mario.y == 0) then 0 else mario.vy - dt/4
   }
 
 
 constraints : List Platform -> Model -> Model
 constraints platforms mario =
   { mario |
-      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx,
-      vy = if List.any ((\n -> n mario) within) platforms && mario.vy < 0 then 0 else mario.vy
+      vx = if ((within mario leftWall) && mario.dir == Left) || ((within mario rightWall) && mario.dir == Right) then 0 else mario.vx
   }
 
 

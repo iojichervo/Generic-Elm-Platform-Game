@@ -68,7 +68,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = initialPlatforms 60 []
+  , platforms = initialPlatforms 0 []
   , randomPosition = 0
   , size = Size 0 0
   }, Task.perform (\_ -> NoOp) Resize (Window.size))
@@ -91,7 +91,10 @@ update msg game =
       ( updateGame 1 game , Random.generate NewPlatform (Random.float leftWall.x rightWall.x) )
 
     KeyDown keyCode ->
-      ( { game | mario = keyDown keyCode game.mario game.platforms } , Cmd.none )
+        if game.state == Playing then
+            ( { game | mario = keyDown keyCode game.mario game.platforms } , Cmd.none )
+        else
+            ( game, Cmd.none )
 
     KeyUp keyCode ->
       ( { game | mario = keyUp keyCode game.mario } , Cmd.none )
@@ -137,7 +140,7 @@ keyUp keyCode model =
 
 jump : Model -> List Platform -> Model
 jump mario platforms =
-  if mario.vy == 0 && (List.any ((\n -> n mario) within) platforms || mario.y == 0) then
+  if mario.vy == 0 && List.any ((\n -> n mario) within) platforms then
       { mario | vy = 8.0 }
   else
       mario
@@ -159,7 +162,10 @@ walk val mario =
 
 updateGame : Float -> Game -> Game
 updateGame dt game =
-  { game | mario = updateMario dt game.mario game.platforms }
+  { game |
+    state = if game.mario.y < 0 then Over else Playing
+  , mario = updateMario dt game.mario game.platforms
+  , platforms = scroll game.mario game.platforms}
 
 
 updateMario : Float -> Model -> List Platform -> Model
@@ -173,7 +179,7 @@ updateMario dt mario platforms =
 gravity : Float -> List Platform -> Model -> Model
 gravity dt platforms mario =
   { mario |
-      vy = if mario.vy <= 0 && (List.any ((\n -> n mario) within) platforms || mario.y == 0) then 0 else mario.vy - dt/4
+      vy = if mario.vy <= 0 && List.any ((\n -> n mario) within) platforms then 0 else mario.vy - dt/4
   }
 
 
@@ -187,9 +193,22 @@ constraints platforms mario =
 physics : Float -> Model -> Model
 physics dt mario =
   { mario |
-      x = mario.x + dt * mario.vx,
-      y = max 0 (mario.y + dt * mario.vy)
+      x = mario.x + dt * mario.vx
+  ,   y = mario.y + dt * mario.vy
   }
+
+
+scroll : Model -> List Platform -> List Platform
+scroll mario platforms =
+    if mario.y > 300 && mario.vy > 0 then
+        List.map (scrollPlatform 2) platforms
+    else
+        platforms
+
+
+scrollPlatform : Float -> Platform -> Platform
+scrollPlatform value platform =
+    { platform | y = platform.y - value }
 
 
 within : Model -> Platform -> Bool
@@ -212,7 +231,10 @@ initialPlatforms y platforms =
 
 platformGenerator : Float -> Platform
 platformGenerator y =
-    Platform 15 100 0 y
+    if y == 0 then
+        Platform 50 600 0 -15
+    else
+        Platform 15 100 0 y
 
 
 -- SUBSCRIPTIONS
@@ -230,6 +252,22 @@ subscriptions game =
 
 view : Game -> Html Msg
 view game =
+  let
+    {width, height} = game.size
+
+    shown = 
+        if game.state == Playing then
+            elementGame game
+        else
+            centered (Text.fromString "Game Over")
+
+  in
+    toHtml <|
+    container width height middle <| shown
+
+
+elementGame : Game -> Element
+elementGame game = 
   let
     verb =
       if game.mario.vy /= 0 then
@@ -252,26 +290,19 @@ view game =
     w = 800
     h = 600
 
-    {width, height} = game.size
-
     groundY = 62 - h/2
 
     platforms = platformsView game.platforms
 
   in
-    toHtml <|
-    container width height middle <|
     collage w h (List.append platforms
-      [ rect w 50
-          |> filled Color.charcoal
-          |> move (0, 24 - h/2)
-      , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
+      [ rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
           |> filled Color.red
           |> move (leftWall.x, leftWall.y)
       , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
           |> filled Color.red
           |> move (rightWall.x, rightWall.y)
-      , toForm (leftAligned (Text.fromString (toString game.mario.x)))
+      , toForm (leftAligned (Text.fromString (toString game.mario.y)))
           |> move (0, 40 - h/2)
       , marioImage
           |> toForm
@@ -290,11 +321,6 @@ platformView platform =
     platRect = filled Color.blue (rect (toFloat platform.w) (toFloat platform.h))
   in
     platRect |> move (platform.x, platform.y + groundY)
-
-fromJust : Maybe a -> a
-fromJust x = case x of
-    Just y -> y
-    Nothing -> Debug.crash "error: fromJust Nothing"
 
 -- MAIN
 

@@ -9,7 +9,6 @@ import Debug
 import Keyboard exposing (KeyCode)
 import Collage
 import Random
-import Utils exposing (..)
 import AnimationFrame
 import Key exposing (..)
 
@@ -54,7 +53,7 @@ type Direction = Left | Right
 initialMario : Model
 initialMario =
   { x = 0
-  , y = 0
+  , y = 200
   , vx = 0
   , vy = 0
   , dir = Right
@@ -79,7 +78,7 @@ update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     TimeUpdate newTime ->
-      (updateGame (1, keyCodeToKey 0) game, Cmd.none)
+      (updateGame 1 game, Cmd.none)
 
     KeyDown keyCode ->
       ( { game | mario = keyDown keyCode game.mario } , Cmd.none )
@@ -123,6 +122,7 @@ jump mario =
   else
       mario
 
+
 walk : Int -> Model -> Model
 walk val mario =
   { mario |
@@ -137,15 +137,13 @@ walk val mario =
   }
 
 
-updateGame : (Float, Keys) -> Game -> Game
-updateGame (dt, keys) game =
-  { game |
-    mario = updateMario (dt, keys) game.mario game.platforms
-  }
+updateGame : Float -> Game -> Game
+updateGame dt game =
+  { game | mario = updateMario dt game.mario game.platforms }
 
 
-updateMario : (Float, Keys) -> Model -> List Platform -> Model
-updateMario (dt, keys) mario platforms =
+updateMario : Float -> Model -> List Platform -> Model
+updateMario dt mario platforms =
   mario
     |> gravity dt platforms
     |> constraints platforms
@@ -179,6 +177,7 @@ within : Model -> Platform -> Bool
 within mario platform =
   near platform.x ((toFloat platform.w) / 2) mario.x && near platform.y ((toFloat platform.h) / 2) mario.y
 
+
 near : number -> number -> number -> Bool
 near c h n =
   n >= c-h && n <= c+h
@@ -190,6 +189,7 @@ initialPlatforms y platforms =
     platforms
   else
     initialPlatforms (y + 60) ((platformGenerator 1 y) ::  platforms)
+
 
 platformGenerator : Float -> Float -> Platform
 platformGenerator dt y =

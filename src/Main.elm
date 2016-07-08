@@ -19,11 +19,11 @@ import List.Extra exposing (last)
 
 leftWall : Platform
 leftWall =
-  Platform 1300 10 -225 0
+  Platform 1300 10 -200 0 1
 
 rightWall : Platform
 rightWall =
-  Platform 1300 10 225 0
+  Platform 1300 10 200 0 1
 
 -- MODEL
 
@@ -51,6 +51,7 @@ type alias Platform =
   , w : Int
   , x : Float
   , y : Float
+  , life : Float
   }
 
 type Direction = Left | Right
@@ -70,7 +71,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = [Platform 50 475 0 -23]
+  , platforms = [Platform 50 425 0 -23 1]
   , randomPosition = 0
   , size = Size 0 0
   , score = 0.0
@@ -168,7 +169,9 @@ updateGame dt game =
   { game |
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
-  , platforms = generatePlatforms game.randomPosition game.platforms
+  , platforms = 
+    consumePlatforms game.mario game.score <|
+    generatePlatforms game.randomPosition game.platforms
   , score = if game.state == Playing then game.score + 0.03 else game.score }
 
 
@@ -206,14 +209,13 @@ scroll : Game -> Game
 scroll game =
     let
         globalScroll = game.score / 100
+
+        sc = if game.mario.y >= 300 then 2 else globalScroll
     in
         { game |
-            platforms = if game.mario.y >= 300 then
-                List.filter removePlatform <|
-                List.map (scrollPlatform 2) game.platforms
-               else
-                List.map (scrollPlatform globalScroll) game.platforms
-        ,   mario = scrollMario game.mario globalScroll
+            platforms = List.filter availablePlatform <|
+                List.map (scrollPlatform sc) game.platforms
+        ,   mario = scrollMario game.mario sc
         }
 
 
@@ -222,14 +224,14 @@ scrollPlatform value platform =
     { platform | y = platform.y - value }
 
 
-removePlatform : Platform -> Bool
-removePlatform platform =
-    platform.y > -50
+availablePlatform : Platform -> Bool
+availablePlatform platform =
+    platform.y > -80 && platform.life > 0
 
 
 scrollMario : Model -> Float -> Model
-scrollMario mario globalScroll =
-    { mario | y = if mario.y >= 300 then mario.y - 2 else mario.y - globalScroll }
+scrollMario mario sc =
+    { mario | y = mario.y - sc }
 
 
 generatePlatforms : Float -> List Platform -> List Platform
@@ -237,11 +239,24 @@ generatePlatforms position platforms =
     case last platforms of
         Just platform ->
             if platform.y < 600 then
-                    platforms ++ [Platform 15 100 position (platform.y + 60)]
+                    platforms ++ [Platform 15 100 position (platform.y + 60) 1]
                 else
                     platforms
 
         Nothing -> platforms
+
+
+consumePlatforms : Model -> Float -> List Platform -> List Platform
+consumePlatforms mario score platforms =
+    List.map (consumePlatform mario score) platforms
+
+
+consumePlatform : Model -> Float -> Platform -> Platform
+consumePlatform mario score platform =
+    if platform.w < 400 && within mario platform then
+        { platform | life = platform.life - (score / 1000) }
+    else
+        platform
 
 
 within : Model -> Platform -> Bool
@@ -342,7 +357,7 @@ platformView platform =
   let
     groundY = 62 - 600/2
 
-    color = if platform.w > 400 then Color.lightCharcoal else Color.rgb 224 30 76
+    color = if platform.w > 400 then Color.lightCharcoal else Color.rgba 224 30 76 platform.life
 
     platRect = filled color (rect (toFloat platform.w) (toFloat platform.h))
 

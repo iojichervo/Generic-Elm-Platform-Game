@@ -8,7 +8,7 @@ import Time exposing (Time, second)
 import Debug
 import Keyboard exposing (KeyCode)
 import Collage exposing (..)
-import Random
+import Random exposing (Generator)
 import AnimationFrame
 import Key exposing (..)
 import Window exposing (Size)
@@ -33,7 +33,7 @@ type alias Game =
   { state : State
   , mario : Model
   , platforms : List Platform
-  , randomPosition : Float
+  , randomPlatform : (Float, Movable)
   , size : Size
   , score : Float
   }
@@ -76,7 +76,7 @@ defaultGame =
   ({ state = Playing
   , mario = initialMario
   , platforms = [Platform 50 425 0 -23 1 None]
-  , randomPosition = 0
+  , randomPlatform = (0, None)
   , size = Size 0 0
   , score = 0.0
   }, Task.perform (\_ -> NoOp) Resize (Window.size))
@@ -87,7 +87,7 @@ type Msg
     = TimeUpdate Time
     | KeyDown KeyCode
     | KeyUp KeyCode
-    | NewPlatform Float
+    | NewPlatform (Float, Movable)
     | Resize Size
     | NoOp
 
@@ -96,7 +96,7 @@ update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     TimeUpdate newTime ->
-      ( scroll (updateGame 1 game) , Random.generate NewPlatform (Random.float (leftWall.x + 45) (rightWall.x - 45)) )
+      ( scroll (updateGame 1 game) , Random.generate NewPlatform platformGenerator )
 
     KeyDown keyCode ->
         if game.state == Playing then
@@ -107,14 +107,33 @@ update msg game =
     KeyUp keyCode ->
       ( { game | mario = keyUp keyCode game.mario } , Cmd.none )
 
-    NewPlatform position ->
-      ( { game | randomPosition = position } , Cmd.none )
+    NewPlatform (position, movable) ->
+      ( { game | randomPlatform = (position, movable) } , Cmd.none )
 
     Resize size ->
       ( { game | size = size } , Cmd.none )
 
     NoOp ->
       ( game , Cmd.none )
+
+
+platformGenerator : Generator (Float, Movable)
+platformGenerator =
+    Random.pair (Random.float (leftWall.x + 45) (rightWall.x - 45)) movableGenerator
+
+
+movableGenerator : Generator Movable
+movableGenerator =
+    Random.map movableAssignator (Random.int -3 3)
+
+
+movableAssignator : Int -> Movable
+movableAssignator val =
+    case val of
+        -1 -> Horizontal Left
+        1 -> Horizontal Right
+        _ -> None
+
 
 
 keyDown : KeyCode -> Model -> List Platform -> Model
@@ -176,7 +195,7 @@ updateGame dt game =
   , platforms = 
     movePlatforms <|
     consumePlatforms game.mario game.score <|
-    generatePlatforms game.randomPosition game.platforms
+    generatePlatforms game.randomPlatform game.platforms
   , score = if game.state == Playing then game.score + 0.03 else game.score }
 
 
@@ -239,12 +258,12 @@ scrollMario mario sc =
     { mario | y = mario.y - sc }
 
 
-generatePlatforms : Float -> List Platform -> List Platform
-generatePlatforms position platforms =
+generatePlatforms : (Float, Movable) -> List Platform -> List Platform
+generatePlatforms (position, movable) platforms =
     case last platforms of
         Just platform ->
             if platform.y < 600 then
-                    platforms ++ [Platform 15 100 position (platform.y + 60) 1 (Horizontal Left)]
+                    platforms ++ [Platform 15 100 position (platform.y + 60) 1 movable]
                 else
                     platforms
 

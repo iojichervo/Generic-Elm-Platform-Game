@@ -19,11 +19,11 @@ import List.Extra exposing (last)
 
 leftWall : Platform
 leftWall =
-  Platform 1300 10 -200 0 1
+  Platform 1300 10 -200 0 1 None
 
 rightWall : Platform
 rightWall =
-  Platform 1300 10 200 0 1
+  Platform 1300 10 200 0 1 None
 
 -- MODEL
 
@@ -52,7 +52,11 @@ type alias Platform =
   , x : Float
   , y : Float
   , life : Float
+  , movable : Movable
   }
+
+type Movable = Horizontal Direction | None
+
 
 type Direction = Left | Right
 
@@ -71,7 +75,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = [Platform 50 425 0 -23 1]
+  , platforms = [Platform 50 425 0 -23 1 None]
   , randomPosition = 0
   , size = Size 0 0
   , score = 0.0
@@ -92,7 +96,7 @@ update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     TimeUpdate newTime ->
-      ( scroll (updateGame 1 game) , Random.generate NewPlatform (Random.float leftWall.x rightWall.x) )
+      ( scroll (updateGame 1 game) , Random.generate NewPlatform (Random.float (leftWall.x + 45) (rightWall.x - 45)) )
 
     KeyDown keyCode ->
         if game.state == Playing then
@@ -170,6 +174,7 @@ updateGame dt game =
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
   , platforms = 
+    movePlatforms <|
     consumePlatforms game.mario game.score <|
     generatePlatforms game.randomPosition game.platforms
   , score = if game.state == Playing then game.score + 0.03 else game.score }
@@ -210,7 +215,7 @@ scroll game =
     let
         globalScroll = game.score / 100
 
-        sc = if game.mario.y >= 300 then 2 else globalScroll
+        sc = if game.mario.y >= 300 then 2 + globalScroll else globalScroll
     in
         { game |
             platforms = List.filter availablePlatform <|
@@ -239,7 +244,7 @@ generatePlatforms position platforms =
     case last platforms of
         Just platform ->
             if platform.y < 600 then
-                    platforms ++ [Platform 15 100 position (platform.y + 60) 1]
+                    platforms ++ [Platform 15 100 position (platform.y + 60) 1 (Horizontal Left)]
                 else
                     platforms
 
@@ -257,6 +262,31 @@ consumePlatform mario score platform =
         { platform | life = platform.life - (min 0.1 (score / 10000)) }
     else
         platform
+
+
+movePlatforms : List Platform -> List Platform
+movePlatforms platforms =
+    List.map movePlatform platforms
+
+
+movePlatform : Platform -> Platform
+movePlatform platform =
+    case platform.movable of
+        None ->
+            platform
+
+        Horizontal dir ->
+            let
+                newDir = case dir of
+                    Left ->
+                        if platform.x - 45 <= leftWall.x then Right else Left
+
+                    Right ->
+                        if platform.x + 45 >= rightWall.x then Left else Right
+
+                deltaX = if dir == Right then 1 else -1
+            in
+                { platform | x = platform.x + deltaX, movable = Horizontal newDir }
 
 
 within : Model -> Platform -> Bool

@@ -91,7 +91,7 @@ update : Msg -> Game -> (Game, Cmd Msg)
 update msg game =
   case msg of
     TimeUpdate newTime ->
-      ( updateGame 1 game , Random.generate NewPlatform (Random.float leftWall.x rightWall.x) )
+      ( scroll (updateGame 1 game) , Random.generate NewPlatform (Random.float leftWall.x rightWall.x) )
 
     KeyDown keyCode ->
         if game.state == Playing then
@@ -168,9 +168,7 @@ updateGame dt game =
   { game |
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
-  , platforms = 
-    generatePlatforms game.randomPosition <|
-    scroll game.mario game.platforms
+  , platforms = generatePlatforms game.randomPosition game.platforms
   , score = if game.mario.y > game.score then game.mario.y else game.score }
 
 
@@ -204,13 +202,16 @@ physics dt mario =
   }
 
 
-scroll : Model -> List Platform -> List Platform
-scroll mario platforms =
-    if mario.y >= 300 then
-        List.filter removePlatform <|
-        List.map (scrollPlatform 2) platforms
-    else
-        platforms
+scroll : Game -> Game
+scroll game =
+    { game |
+        platforms = if game.mario.y >= 300 then
+            List.filter removePlatform <|
+            List.map (scrollPlatform 2) game.platforms
+           else
+            game.platforms
+    ,   mario = scrollMario game.mario
+    }
 
 
 scrollPlatform : Float -> Platform -> Platform
@@ -221,6 +222,11 @@ scrollPlatform value platform =
 removePlatform : Platform -> Bool
 removePlatform platform =
     platform.y > -50
+
+
+scrollMario : Model -> Model
+scrollMario mario =
+    { mario | y = if mario.y >= 300 then mario.y - 2 else mario.y }
 
 
 generatePlatforms : Float -> List Platform -> List Platform

@@ -13,6 +13,7 @@ import AnimationFrame
 import Key exposing (..)
 import Window exposing (Size)
 import Task
+import List.Extra exposing (last)
 
 -- CONSTANTS
 
@@ -69,7 +70,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = initialPlatforms 0 []
+  , platforms = [Platform 50 615 0 -23]
   , randomPosition = 0
   , size = Size 0 0
   , score = 0.0
@@ -167,7 +168,9 @@ updateGame dt game =
   { game |
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
-  , platforms = scroll game.mario game.platforms
+  , platforms = 
+    generatePlatforms game.randomPosition <|
+    scroll game.mario game.platforms
   , score = if game.mario.y > game.score then game.mario.y else game.score }
 
 
@@ -203,7 +206,8 @@ physics dt mario =
 
 scroll : Model -> List Platform -> List Platform
 scroll mario platforms =
-    if mario.y > 300 && mario.vy > 0 then
+    if mario.y >= 300 then
+        List.filter removePlatform <|
         List.map (scrollPlatform 2) platforms
     else
         platforms
@@ -212,6 +216,23 @@ scroll mario platforms =
 scrollPlatform : Float -> Platform -> Platform
 scrollPlatform value platform =
     { platform | y = platform.y - value }
+
+
+removePlatform : Platform -> Bool
+removePlatform platform =
+    platform.y > -50
+
+
+generatePlatforms : Float -> List Platform -> List Platform
+generatePlatforms position platforms =
+    case last platforms of
+        Just platform ->
+            if platform.y < 600 then
+                    platforms ++ [Platform 15 100 position (platform.y + 60)]
+                else
+                    platforms
+
+        Nothing -> platforms
 
 
 within : Model -> Platform -> Bool

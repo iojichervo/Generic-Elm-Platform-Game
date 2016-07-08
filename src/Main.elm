@@ -254,7 +254,7 @@ consumePlatforms mario score platforms =
 consumePlatform : Model -> Float -> Platform -> Platform
 consumePlatform mario score platform =
     if platform.w < 400 && within mario platform then
-        { platform | life = platform.life - (score / 1000) }
+        { platform | life = platform.life - (min 0.1 (score / 10000)) }
     else
         platform
 

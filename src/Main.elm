@@ -19,11 +19,11 @@ import List.Extra exposing (last)
 
 leftWall : Platform
 leftWall =
-  Platform 1300 10 -300 0
+  Platform 1300 10 -225 0
 
 rightWall : Platform
 rightWall =
-  Platform 1300 10 300 0
+  Platform 1300 10 225 0
 
 -- MODEL
 
@@ -70,7 +70,7 @@ defaultGame : (Game, Cmd Msg)
 defaultGame =
   ({ state = Playing
   , mario = initialMario
-  , platforms = [Platform 50 615 0 -23]
+  , platforms = [Platform 50 475 0 -23]
   , randomPosition = 0
   , size = Size 0 0
   , score = 0.0
@@ -169,7 +169,7 @@ updateGame dt game =
     state = if game.mario.y < -50 then Over else Playing
   , mario = updateMario dt game.mario game.platforms
   , platforms = generatePlatforms game.randomPosition game.platforms
-  , score = if game.mario.y > game.score then game.mario.y else game.score }
+  , score = if game.state == Playing then game.score + 0.03 else game.score }
 
 
 updateMario : Float -> Model -> List Platform -> Model
@@ -204,14 +204,17 @@ physics dt mario =
 
 scroll : Game -> Game
 scroll game =
-    { game |
-        platforms = if game.mario.y >= 300 then
-            List.filter removePlatform <|
-            List.map (scrollPlatform 2) game.platforms
-           else
-            game.platforms
-    ,   mario = scrollMario game.mario
-    }
+    let
+        globalScroll = game.score / 100
+    in
+        { game |
+            platforms = if game.mario.y >= 300 then
+                List.filter removePlatform <|
+                List.map (scrollPlatform 2) game.platforms
+               else
+                List.map (scrollPlatform globalScroll) game.platforms
+        ,   mario = scrollMario game.mario globalScroll
+        }
 
 
 scrollPlatform : Float -> Platform -> Platform
@@ -224,9 +227,9 @@ removePlatform platform =
     platform.y > -50
 
 
-scrollMario : Model -> Model
-scrollMario mario =
-    { mario | y = if mario.y >= 300 then mario.y - 2 else mario.y }
+scrollMario : Model -> Float -> Model
+scrollMario mario globalScroll =
+    { mario | y = if mario.y >= 300 then mario.y - 2 else mario.y - globalScroll }
 
 
 generatePlatforms : Float -> List Platform -> List Platform
@@ -251,22 +254,6 @@ near c h n =
   n >= c-h && n <= c+h
 
 
-initialPlatforms : Float -> List Platform -> List Platform
-initialPlatforms y platforms =
-  if y > 600 then
-    platforms
-  else
-    initialPlatforms (y + 60) (platformGenerator y ::  platforms)
-
-
-platformGenerator : Float -> Platform
-platformGenerator y =
-    if y == 0 then
-        Platform 50 615 0 -23
-    else
-        Platform 15 100 0 y
-
-
 -- SUBSCRIPTIONS
 
 subscriptions : Game -> Sub Msg
@@ -289,7 +276,7 @@ view game =
         if game.state == Playing then
             elementGame game
         else
-            "Game Over!\n\nYour Score is: " ++ toString game.score
+            "Game Over!\n\nYour Score is: " ++ toString (truncate game.score)
             |> Text.fromString
             |> centered
 
@@ -329,7 +316,7 @@ elementGame game =
   in
     collage w h
       ([ rect w h -- background
-          |> filled (Color.rgb 174 238 238)] ++ platforms ++
+          |> filled (Color.rgb 51 204 255)] ++ platforms ++
       [ marioImage
           |> toForm
           |> move (game.mario.x, game.mario.y + groundY)
@@ -339,11 +326,11 @@ elementGame game =
       , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
           |> filled Color.lightCharcoal
           |> move (rightWall.x + 9, rightWall.y)
-      , "Score: " ++ toString game.score
+      , "Time: " ++ toString (truncate game.score)
           |> Text.fromString
           |> centered
           |> toForm
-          |> move (-250, 280)
+          |> move (-350, 280)
       ])
 
 platformsView : List Platform -> List Form
@@ -355,11 +342,11 @@ platformView platform =
   let
     groundY = 62 - 600/2
 
-    color = if platform.w > 600 then Color.lightCharcoal else Color.lightGreen
+    color = if platform.w > 400 then Color.lightCharcoal else Color.rgb 224 30 76
 
     platRect = filled color (rect (toFloat platform.w) (toFloat platform.h))
 
-    fixY = if platform.w > 600 then 15 else toFloat platform.h
+    fixY = if platform.w > 400 then 15 else toFloat platform.h
   in
     platRect |> move (platform.x, platform.y + groundY - fixY)
 

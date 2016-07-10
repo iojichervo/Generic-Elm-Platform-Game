@@ -1,7 +1,7 @@
 {
     "version": "1.0.0",
     "summary": "A platform game",
-    "repository": "https://github.com/iojichervo/trambolico.git",
+    "repository": "https://github.com/iojichervo/generic-elm-platform-game.git",
     "license": "MIT",
     "source-directories": [
         "./src/"

@@ -8,6 +8,7 @@ import Text
 import String
 import GamePlatform exposing (..)
 import Game exposing (..)
+import Hero exposing (..)
 
 -- CONSTANTS
 
@@ -44,40 +45,22 @@ view game =
 elementGame : Game -> Element
 elementGame game = 
   let
-    verb =
-      if game.mario.vy /= 0 then
-        "jump"
-      else if game.mario.vx /= 0 then
-        "walk"
-      else
-        "stand"
-
-    dir =
-      case game.mario.dir of
-        Left -> "left"
-        Right -> "right"
-
-    src =
-      "../img/mario/"++ verb ++ "/" ++ dir ++ ".gif"
-
-    marioImage = image 35 35 src
+    bgImg = image w h "../img/background.png"
 
     groundY = 62 - h/2
 
     platforms = platformsView game.platforms
-
   in
     collage w h
-      ([ rect w h -- background
-          |> filled (Color.rgb 51 204 255)] ++ platforms ++
-      [ marioImage
+      ( toForm bgImg :: platforms ++
+      [ heroImage game.hero
           |> toForm
-          |> move (game.mario.x, game.mario.y + groundY)
+          |> move (game.hero.x, game.hero.y + groundY)
       , rect (toFloat leftWall.w) (toFloat leftWall.h) -- left wall
-          |> filled Color.lightCharcoal
+          |> filled Color.darkCharcoal
           |> move (leftWall.x - 8, leftWall.y)
       , rect (toFloat rightWall.w) (toFloat rightWall.h) -- right wall
-          |> filled Color.lightCharcoal
+          |> filled Color.darkCharcoal
           |> move (rightWall.x + 9, rightWall.y)
       , "Time: " ++ toString (truncate game.score)
           |> Text.fromString
@@ -85,6 +68,33 @@ elementGame game =
           |> toForm
           |> move (-350, 280)
       ])
+
+
+heroImage : Hero -> Element
+heroImage hero = 
+  let
+    verb =
+      if hero.vy /= 0 then
+        "jump"
+      else if hero.vx /= 0 then
+        "walk"
+      else
+        "stand"
+
+    dir =
+      case hero.dir of
+        Left -> "left"
+        Right -> "right"
+
+    format = if verb == "walk" then ".gif" else ".png"
+
+    src =
+      "../img/hero/"++ verb ++ "/" ++ dir ++ format
+
+    heroh = if verb == "stand" then 40 else 50
+    herow = if verb == "stand" then 28 else 35
+  in
+    image herow heroh src
 
 
 platformsView : List Platform -> List Form
@@ -102,15 +112,13 @@ platformView platform =
     platRect =
       rect (toFloat platform.w) (toFloat platform.h)
       |> filled color
-
-    fixY = if platform.w > 400 then 15 else toFloat platform.h
   in
-    platRect |> move (platform.x, platform.y + groundY - fixY)
+    platRect |> move (platform.x, platform.y + groundY - 20)
 
 
 platformColor : Platform -> Color
 platformColor platform = 
   if platform.w > 400 then
-    Color.lightCharcoal
+    Color.darkCharcoal
   else
-    Color.rgba 224 30 76 platform.life
+    Color.rgba 136 138 133 platform.life
